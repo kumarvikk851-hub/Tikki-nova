@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Tikki Nova",
+  "short_name": "Tikki Nova",
+  "description": "Short videos, live streaming, and creator community on Tikki Nova.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090214",
+  "theme_color": "#090214",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
