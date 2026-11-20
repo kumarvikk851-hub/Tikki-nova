@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Account — Tikki Nova</title>
+  <style>
+    body { font-family: sans-serif; background: #090214; color: #f3e8ff; max-width: 650px; margin: 0 auto; padding: 24px 16px; line-height: 1.6; }
+    h1, h2 { color: #facc15; }
+    .box { background: #14072b; border: 1px solid #9333ea; border-radius: 14px; padding: 16px; margin-top: 14px; }
+    input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #9333ea; background: #090214; color: #fff; margin: 8px 0; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: #ef4444; color: #fff; font-weight: 800; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Delete Account — Tikki Nova</h1>
+  <div class="box">
+    <h2>Option 1: Delete Inside App</h2>
+    <p>Open <b>Tikki Nova</b> → Go to <b>Profile</b> → Tap <b>Delete My Account</b>.</p>
+  </div>
+  <div class="box">
+    <h2>Option 2: Request Online</h2>
+    <p>Enter your registered Phone Number or Email. Account & data will be deleted within 7 days.</p>
+    <input id="del-id" type="text" placeholder="Registered Mobile or Email" />
+    <button onclick="reqDel()">Submit Request</button>
+    <p id="del-msg" style="color:#4ade80; font-weight:700; margin-top:10px;"></p>
+  </div>
+  <p style="margin-top:16px;">Support Email: <b>support@tikkinova.app</b></p>
+  <script>
+    function reqDel() {
+      var v = document.getElementById('del-id').value.trim();
+      if (!v) { alert('Please enter your mobile or email.'); return; }
+      document.getElementById('del-msg').textContent = 'Request submitted for ' + v + '. Will be deleted within 7 days.';
+    }
+  </script>
+</body>
+</html>
