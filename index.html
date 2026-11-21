@@ -2957,9 +2957,40 @@ function addNotification(type, htmlText) {
   }
   updateAllCoinsUI();
   
+
+/* === FIX: TAB BADALNE YA POST KHOLNE PAR REELS SOUND BAND === */
+  function pauseReelsBgVideo() {
+    const rv = document.getElementById('reels-user-video');
+    if (rv && !rv.paused) rv.pause();
+  }
+
+  const _origSwitchTab = window.switchTab;
+  window.switchTab = function (tab) {
+    if (tab !== 'reels') pauseReelsBgVideo();
+    if (typeof _origSwitchTab === 'function') _origSwitchTab(tab);
+    if (tab === 'reels') {
+      const rv = document.getElementById('reels-user-video');
+      if (rv && rv.src && rv.style.display !== 'none') rv.play().catch(() => {});
+    }
+  };
+
+  ['openPostPreview', 'openVideoStudio', 'openStoryStudio', 'openLiveScreen', 'openStoryScreen', 'handleYourStoryClick'].forEach(fn => {
+    const orig = window[fn];
+    if (typeof orig === 'function') {
+      window[fn] = function (...args) {
+        pauseReelsBgVideo();
+        return orig.apply(this, args);
+      };
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      document.querySelectorAll('video').forEach(v => { try { v.pause(); } catch {} });
+    }
+  });
 </script>
 <div id="recaptcha-container"></div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
   import {
@@ -3240,6 +3271,189 @@ function addNotification(type, htmlText) {
       } else {
         alert('Delete Error: ' + (err.code || '') + '\n' + (err.message || err));
       }
+    }
+  };
+  /* === REAL MOBILE SMS OTP FOR KYC & PAYOUT === */
+  const kycApp = initializeApp(firebaseConfig, 'tikkiKycOtpApp');
+  const kycAuth = getAuth(kycApp);
+  let kycConfirmResult = null;
+  let payoutConfirmResult = null;
+  let changeConfirmResult = null;
+
+  (function resetFakeKycDefaults() {
+    if (!state.kyc.verified) {
+      ['kyc-name', 'kyc-pan', 'kyc-mobile', 'kyc-otp-val', 'wd-upi-id'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const otpEl = document.getElementById('kyc-otp-val');
+      if (otpEl) otpEl.placeholder = 'Enter 6-digit SMS OTP';
+    }
+  })();
+
+  function getKycPhoneE164(rawMob) {
+    const digits = String(rawMob || '').replace(/\D/g, '');
+    if (digits.length === 10) return '+91' + digits;
+    if (digits.length >= 11) return '+' + digits;
+    return '';
+  }
+
+  async function sendRealKycSmsOtp(phoneE164) {
+    let wrap = document.getElementById('kyc-recaptcha-wrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'kyc-recaptcha-wrap';
+      document.body.appendChild(wrap);
+    }
+    if (window.kycRecaptchaVerifier) {
+      try { window.kycRecaptchaVerifier.clear(); } catch {}
+      window.kycRecaptchaVerifier = null;
+    }
+    wrap.innerHTML = '';
+    const box = document.createElement('div');
+    wrap.appendChild(box);
+    window.kycRecaptchaVerifier = new RecaptchaVerifier(kycAuth, box, { size: 'invisible' });
+    return await signInWithPhoneNumber(kycAuth, phoneE164, window.kycRecaptchaVerifier);
+  }
+
+  window.sendKycOtp = async function () {
+    const n = (document.getElementById('kyc-name')?.value || '').trim();
+    const p = (document.getElementById('kyc-pan')?.value || '').trim().toUpperCase();
+    const m = (document.getElementById('kyc-mobile')?.value || '').replace(/\D/g, '');
+    if (n.length < 3) { showToast('⚠️ Apna Poora Real Naam daalein'); return; }
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(p)) { showToast('⚠️ Sahi 10-digit PAN daalein (e.g. ABCDE1234F)'); return; }
+    const phoneE164 = getKycPhoneE164(m);
+    if (!phoneE164) { showToast('⚠️ Sahi 10-digit Mobile Number daalein'); return; }
+
+    const btn = document.getElementById('kyc-send-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Real SMS OTP bhej rahe hain...'; }
+    try {
+      kycConfirmResult = await sendRealKycSmsOtp(phoneE164);
+      state.kyc.name = n;
+      state.kyc.pan = p;
+      state.kyc.mobile = m;
+      document.getElementById('kyc-otp-row').style.display = 'block';
+      if (btn) btn.style.display = 'none';
+      showToast('📩 Real 6-digit SMS OTP sent to ' + phoneE164);
+    } catch (err) {
+      alert('KYC OTP Error: ' + (err.code || '') + '\n' + (err.message || err));
+      if (btn) { btn.disabled = false; btn.textContent = '📱 Send OTP for KYC'; }
+    }
+  };
+
+  window.verifyKycOtp = async function () {
+    const code = (document.getElementById('kyc-otp-val')?.value || '').trim();
+    if (!kycConfirmResult || code.length < 6) {
+      showToast('⚠️ Phone par aaya 6-digit Real SMS OTP daalein');
+      return;
+    }
+    try {
+      await kycConfirmResult.confirm(code);
+      try { await signOut(kycAuth); } catch {}
+      state.kyc.verified = true;
+      document.getElementById('kyc-box').style.display = 'none';
+      document.getElementById('payout-box').style.display = 'block';
+      document.getElementById('kyc-masked-mob').textContent = maskMobile(state.kyc.mobile);
+      if (window.saveUserWalletToCloud) await window.saveUserWalletToCloud();
+      showToast('✅ Real Mobile KYC Verified! Ab Bank/UPI add karein');
+    } catch {
+      showToast('❌ Galat OTP! Sahi SMS OTP daalein');
+    }
+  };
+
+  window.requestSavePayoutOtp = async function () {
+    if (!state.kyc.verified || !state.kyc.mobile) {
+      showToast('⚠️ Pehle Real Mobile KYC complete karein');
+      return;
+    }
+    let label = '';
+    if (state.withdrawMethod === 'upi') {
+      const upi = (document.getElementById('wd-upi-id')?.value || '').trim();
+      if (!upi || !upi.includes('@')) { showToast('⚠️ Sahi UPI ID daalein'); return; }
+      label = 'UPI: ' + upi;
+    } else {
+      let bank = document.getElementById('wd-bank-name').value;
+      if (bank === 'OTHER') bank = document.getElementById('wd-bank-other').value.trim();
+      const holder = document.getElementById('wd-acc-name').value.trim();
+      const acc = document.getElementById('wd-acc-no').value.trim();
+      const accConfirm = document.getElementById('wd-acc-no-confirm').value.trim();
+      const ifsc = document.getElementById('wd-ifsc').value.trim().toUpperCase();
+      if (!bank) { showToast('⚠️ Pehle apna Bank select karein'); return; }
+      if (!holder || acc.length < 6) { showToast('⚠️ Account Holder aur sahi Account Number daalein'); return; }
+      if (acc !== accConfirm) { showToast('⚠️ Account Number match nahi kar rahe!'); return; }
+      if (bank !== 'PayPal Global' && ifsc.length < 6) { showToast('⚠️ Sahi IFSC / SWIFT Code daalein'); return; }
+      label = `${bank} • A/C: XX${acc.slice(-4)}`;
+    }
+    const phoneE164 = getKycPhoneE164(state.kyc.mobile);
+    state.kyc.pendingLabel = label;
+    showToast('⏳ KYC Mobile par Real OTP bhej rahe hain...');
+    try {
+      payoutConfirmResult = await sendRealKycSmsOtp(phoneE164);
+      document.getElementById('modal-content').innerHTML = `
+        <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🔐 Verify Real KYC SMS OTP</div>
+        <div style="font-size:12px;color:#d8b4fe;margin-bottom:12px;">Aapke KYC Mobile <b>${maskMobile(state.kyc.mobile)}</b> par 6-digit SMS OTP bheja gaya hai.<br><span style="color:var(--gold);font-weight:700;">${escapeHtml(label)}</span></div>
+        <input class="input-field" id="payout-otp-input" type="number" placeholder="Enter 6-digit SMS OTP" style="text-align:center;font-weight:800;letter-spacing:4px;" />
+        <button class="gold-btn" onclick="confirmSavePayoutOtp()">✓ Verify Real OTP & Save</button>`;
+      document.getElementById('modal-backdrop').classList.add('active');
+      showToast('📩 Real SMS OTP sent to ' + maskMobile(state.kyc.mobile));
+    } catch (err) {
+      alert('OTP Error: ' + (err.code || '') + '\n' + (err.message || err));
+    }
+  };
+
+  window.confirmSavePayoutOtp = async function () {
+    const code = (document.getElementById('payout-otp-input')?.value || '').trim();
+    if (!payoutConfirmResult || code.length < 6) { showToast('⚠️ 6-digit Real SMS OTP daalein'); return; }
+    try {
+      await payoutConfirmResult.confirm(code);
+      try { await signOut(kycAuth); } catch {}
+      const label = state.kyc.pendingLabel || 'Verified Payout';
+      state.kyc.payoutSaved = true;
+      state.kyc.payoutLabel = label;
+      document.getElementById('saved-payout-label').textContent = label;
+      document.getElementById('saved-payout-view').style.display = 'block';
+      document.getElementById('edit-payout-form').style.display = 'none';
+      document.getElementById('withdraw-action-area').style.display = 'block';
+      if (window.saveUserWalletToCloud) await window.saveUserWalletToCloud();
+      closeModal();
+      showToast('✅ Real OTP Verified & Bank/UPI Saved!');
+    } catch {
+      showToast('❌ Galat OTP! Sahi SMS OTP daalein');
+    }
+  };
+
+  window.openChangePayoutOtp = async function () {
+    const phoneE164 = getKycPhoneE164(state.kyc.mobile);
+    if (!phoneE164) { showToast('⚠️ KYC Mobile missing'); return; }
+    showToast('⏳ KYC Mobile par Real OTP bhej rahe hain...');
+    try {
+      changeConfirmResult = await sendRealKycSmsOtp(phoneE164);
+      document.getElementById('modal-content').innerHTML = `
+        <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🔒 Change UPI / Bank (Real OTP)</div>
+        <div style="font-size:12px;color:#d8b4fe;margin-bottom:12px;">Aapke KYC Mobile <b>${maskMobile(state.kyc.mobile)}</b> par 6-digit SMS OTP bheja gaya hai.</div>
+        <input class="input-field" id="change-otp-input" type="number" placeholder="Enter 6-digit SMS OTP" style="text-align:center;font-weight:800;letter-spacing:4px;" />
+        <button class="primary-btn" onclick="confirmUnlockChange()">🔓 Verify Real OTP</button>`;
+      document.getElementById('modal-backdrop').classList.add('active');
+      showToast('📩 Real SMS OTP sent to ' + maskMobile(state.kyc.mobile));
+    } catch (err) {
+      alert('OTP Error: ' + (err.code || '') + '\n' + (err.message || err));
+    }
+  };
+
+  window.confirmUnlockChange = async function () {
+    const code = (document.getElementById('change-otp-input')?.value || '').trim();
+    if (!changeConfirmResult || code.length < 6) { showToast('⚠️ 6-digit Real SMS OTP daalein'); return; }
+    try {
+      await changeConfirmResult.confirm(code);
+      try { await signOut(kycAuth); } catch {}
+      document.getElementById('payout-form-title').textContent = 'Update UPI or Bank Account';
+      document.getElementById('saved-payout-view').style.display = 'none';
+      document.getElementById('edit-payout-form').style.display = 'block';
+      document.getElementById('withdraw-action-area').style.display = 'none';
+      closeModal();
+      showToast('🔓 Unlocked! Ab naya Bank/UPI daalein');
+    } catch {
+      showToast('❌ Galat OTP! Sahi SMS OTP daalein');
     }
   };
 </script>
