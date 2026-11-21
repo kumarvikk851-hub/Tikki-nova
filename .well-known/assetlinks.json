@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.tikki_nova.twa",
+      "sha256_cert_fingerprints": [
+        "72:D7:56:CE:A2:A5:E2:60:C2:F9:1C:24:74:95:3B:6D:11:70:A0:B1:24:B1:A5:DE:AC:E8:86:23:30:DC:97:97"
+      ]
+    }
+  }
+]
