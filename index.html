@@ -3469,24 +3469,79 @@ function addNotification(type, htmlText) {
   }
 </script>
 <script>
-  (function initTikkiAdMob() {
-    var ADMOB_BANNER_ID = 'ca-app-pub-6839469344776433/8731617588';
+  (function initTikkiInterstitialAd() {
+    var ADMOB_INTERSTITIAL_ID = 'ca-app-pub-6839469344776433/2215144849';
+    var adReady = false;
+    var reelWatchCount = 0;
+
+    function getAdMob() {
+      return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob;
+    }
+
+    async function loadNextInterstitial() {
+      var AdMob = getAdMob();
+      if (!AdMob) return;
+      try {
+        await AdMob.prepareInterstitial({
+          adId: ADMOB_INTERSTITIAL_ID,
+          isTesting: true
+        });
+        adReady = true;
+      } catch (e) {
+        adReady = false;
+      }
+    }
+
+    window.trackTikkiAdView = async function () {
+      reelWatchCount++;
+      if (reelWatchCount % 5 !== 0) return;
+      var AdMob = getAdMob();
+      if (!AdMob || !adReady) {
+        loadNextInterstitial();
+        return;
+      }
+      try {
+        document.querySelectorAll('video').forEach(function (v) { try { v.pause(); } catch (e) {} });
+        adReady = false;
+        await AdMob.showInterstitial();
+      } catch (e) {
+        loadNextInterstitial();
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', async function () {
-      var AdMob = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob;
+      var AdMob = getAdMob();
       if (!AdMob) return;
       try {
         await AdMob.initialize({ initializeForTesting: true });
-        await AdMob.showBanner({
-          adId: ADMOB_BANNER_ID,
-          adSize: 'ADAPTIVE_BANNER',
-          position: 'BOTTOM_CENTER',
-          margin: 72,
-          isTesting: true
-        });
+        if (AdMob.addListener) {
+          AdMob.addListener('interstitialAdDismissed', function () {
+            loadNextInterstitial();
+          });
+          AdMob.addListener('interstitialAdFailedToLoad', function () {
+            adReady = false;
+          });
+        }
+        await loadNextInterstitial();
       } catch (e) {
         console.log('AdMob init error:', e);
       }
     });
+
+    var touchStartY = 0;
+    document.addEventListener('touchstart', function (e) {
+      if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (!e.changedTouches || !e.changedTouches[0]) return;
+      var diff = Math.abs(touchStartY - e.changedTouches[0].clientY);
+      if (diff < 60) return;
+      var reelsActive = document.getElementById('screen-reels')?.classList.contains('active');
+      var postsActive = document.getElementById('overlay-profile-posts')?.classList.contains('active');
+      if (reelsActive || postsActive) {
+        window.trackTikkiAdView();
+      }
+    }, { passive: true });
   })();
 </script>
 </body>
