@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "261597745927",
+    "project_id": "tikki-87f96",
+    "storage_bucket": "tikki-87f96.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:261597745927:android:6520f9c87ff3e477b72ba2",
+        "android_client_info": {
+          "package_name": "com.tikkinova.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "261597745927-shu53khfi9jmm99i7iqajvdkkfunqvm0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmY5Dw5hn7XQvTGW_d5QOYNkVfqCh3hB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "261597745927-shu53khfi9jmm99i7iqajvdkkfunqvm0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
