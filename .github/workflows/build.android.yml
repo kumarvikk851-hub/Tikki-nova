@@ -38,19 +38,18 @@ jobs:
           cp index.html logo.png manifest.json sw.js www/
           npm init -y
           npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor-community/admob@7 @capacitor-firebase/authentication@7
-          npx cap init "Tikki Nova" "com.tikkinova.app" --web-dir www
-          python3 - << 'EOF'
-          import json
-          with open('capacitor.config.json', 'r', encoding='utf-8') as f:
-              cfg = json.load(f)
-          cfg['plugins'] = {
-              'FirebaseAuthentication': {
-                  'skipNativeAuth': True,
-                  'providers': ['google.com']
+          cat << 'EOF' > capacitor.config.json
+          {
+            "appId": "com.tikkinova.app",
+            "appName": "Tikki Nova",
+            "webDir": "www",
+            "plugins": {
+              "FirebaseAuthentication": {
+                "skipNativeAuth": true,
+                "providers": ["google.com"]
               }
+            }
           }
-          with open('capacitor.config.json', 'w', encoding='utf-8') as f:
-              json.dump(cfg, f, indent=2)
           EOF
           npx cap add android
           cp google-services.json android/app/google-services.json
@@ -115,7 +114,7 @@ jobs:
           if [ ! -f ~/.android/debug.keystore ]; then
             keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
-          SHA1=$(keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep "SHA1:" | awk '{print $2}')
+          SHA1=$(keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep -m1 "SHA1:" | awk '{print $2}')
           echo "### APK SHA-1 Fingerprint (Add to Firebase):" >> $GITHUB_STEP_SUMMARY
           echo "\`$SHA1\`" >> $GITHUB_STEP_SUMMARY
           echo "SHA1=$SHA1"
